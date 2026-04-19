@@ -1,8 +1,3 @@
---[[
-    Blox Fruits Script - Rayfield UI
-    Complete Feature Set
-]]
-
 -- Load Rayfield
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 
@@ -12,6 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local VirtualUser = game:GetService("VirtualUser")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 -- Player Variables
 local Player = Players.LocalPlayer
@@ -19,13 +15,20 @@ local Character = Player.Character or Player.CharacterAdded:Wait()
 local Humanoid = Character:WaitForChild("Humanoid")
 local HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
 
+-- Update character references on respawn
+Player.CharacterAdded:Connect(function(newCharacter)
+    Character = newCharacter
+    Humanoid = Character:WaitForChild("Humanoid")
+    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart")
+end)
+
 -- Settings Table
 _G.Config = {
     -- Main Farm
     AutoFarm = false,
     AutoFarmMode = "Level",
     SelectedWeapon = "Melee",
-    FastAttackSpeed = 0.1,
+    FastAttack = false,
     BringMobs = true,
     FarmDistance = 30,
     
@@ -246,7 +249,7 @@ local FruitToggle = StatsTab:CreateToggle({
 local BossSection = BossTab:CreateSection("Boss Farming")
 
 -- Boss list varies by sea
-local BossList = {"Saber Expert", "Warden", "Chief Warden", "Swan"}
+local BossList = {"Saber Expert", "Warden", "Chief Warden", "Swan", "Thunder God", "Cyborg"}
 
 local BossDropdown = BossTab:CreateDropdown({
     Name = "Select Boss",
@@ -273,21 +276,27 @@ local WorldSection = TeleportTab:CreateSection("World Teleport")
 local Sea1Button = TeleportTab:CreateButton({
     Name = "First Sea",
     Callback = function()
-        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelMain")
+        pcall(function()
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelMain")
+        end)
     end,
 })
 
 local Sea2Button = TeleportTab:CreateButton({
     Name = "Second Sea",
     Callback = function()
-        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelDressrosa")
+        pcall(function()
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelDressrosa")
+        end)
     end,
 })
 
 local Sea3Button = TeleportTab:CreateButton({
     Name = "Third Sea",
     Callback = function()
-        game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelZou")
+        pcall(function()
+            game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("TravelZou")
+        end)
     end,
 })
 
@@ -295,12 +304,16 @@ local Sea3Button = TeleportTab:CreateButton({
 local MiscSection = MiscTab:CreateSection("Miscellaneous")
 
 local WhiteScreenToggle = MiscTab:CreateToggle({
-    Name = "White Screen",
+    Name = "White Screen (FPS Boost)",
     CurrentValue = false,
     Flag = "WhiteScreen",
     Callback = function(Value)
         _G.Config.WhiteScreen = Value
-        RunService:Set3dRenderingEnabled(not Value)
+        if Value then
+            game:GetService("RunService"):Set3dRenderingEnabled(false)
+        else
+            game:GetService("RunService"):Set3dRenderingEnabled(true)
+        end
     end,
 })
 
@@ -354,109 +367,212 @@ local SpeedSlider = PlayerTab:CreateSlider({
 
 -- ================== CORE FUNCTIONS ==================
 
--- Auto Haki Function
+-- Auto Haki Function (FIXED)
 function AutoHaki()
-    if not Player.Character:FindFirstChild("HasBuso") then
-        ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
-    end
+    pcall(function()
+        if _G.Config.AutoHaki and not Character:FindFirstChild("HasBuso") then
+            ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
+        end
+    end)
 end
 
--- Equip Weapon Function
+-- Auto Observation (FIXED)
+function AutoObservation()
+    pcall(function()
+        if _G.Config.AutoObservation then
+            ReplicatedStorage.Remotes.CommF_:InvokeServer("Ken", true)
+        end
+    end)
+end
+
+-- Equip Weapon Function (IMPROVED)
 function EquipWeapon()
-    for _, v in pairs(Player.Backpack:GetChildren()) do
-        if v:IsA("Tool") then
-            if _G.Config.SelectedWeapon == "Melee" and v.ToolTip == "Melee" then
-                Humanoid:EquipTool(v)
-                return
-            elseif _G.Config.SelectedWeapon == "Sword" and v.ToolTip == "Sword" then
-                Humanoid:EquipTool(v)
-                return
-            elseif _G.Config.SelectedWeapon == "Blox Fruit" and v.ToolTip == "Blox Fruit" then
-                Humanoid:EquipTool(v)
-                return
+    pcall(function()
+        for _, v in pairs(Player.Backpack:GetChildren()) do
+            if v:IsA("Tool") then
+                if _G.Config.SelectedWeapon == "Melee" and v.ToolTip == "Melee" then
+                    Humanoid:EquipTool(v)
+                    return true
+                elseif _G.Config.SelectedWeapon == "Sword" and v.ToolTip == "Sword" then
+                    Humanoid:EquipTool(v)
+                    return true
+                elseif _G.Config.SelectedWeapon == "Blox Fruit" and v.ToolTip == "Blox Fruit" then
+                    Humanoid:EquipTool(v)
+                    return true
+                end
             end
         end
-    end
+    end)
 end
 
--- Tween Function
-function TweenToPosition(targetPos)
-    local distance = (targetPos.Position - HumanoidRootPart.Position).Magnitude
-    local speed = 300
-    local tweenInfo = TweenInfo.new(distance/speed, Enum.EasingStyle.Linear)
-    
-    local tween = TweenService:Create(HumanoidRootPart, tweenInfo, {CFrame = targetPos})
-    tween:Play()
-    
-    return tween
+-- Tween Function (IMPROVED)
+function TweenToPosition(targetCFrame)
+    pcall(function()
+        local distance = (targetCFrame.Position - HumanoidRootPart.Position).Magnitude
+        local speed = 300
+        local duration = distance / speed
+        
+        local tweenInfo = TweenInfo.new(
+            duration,
+            Enum.EasingStyle.Linear,
+            Enum.EasingDirection.Out
+        )
+        
+        local tween = TweenService:Create(HumanoidRootPart, tweenInfo, {CFrame = targetCFrame})
+        tween:Play()
+        
+        return tween
+    end)
 end
 
--- Fast Attack Function
-local CombatFramework = require(Player.PlayerScripts:WaitForChild("CombatFramework"))
-local CombatFrameworkR = debug.getupvalues(CombatFramework)[2]
-
+-- Fast Attack Function (FIXED - Alternative method)
+local AttackCooldown = 0
 function FastAttack()
-    if _G.Config.FastAttack then
-        pcall(function()
-            if CombatFrameworkR.activeController then
-                CombatFrameworkR.activeController.timeToNextAttack = 0
-                CombatFrameworkR.activeController.attacking = false
-                CombatFrameworkR.activeController.increment = 3
-                CombatFrameworkR.activeController.hitboxMagnitude = 55
-                CombatFrameworkR.activeController.blocking = false
+    if not _G.Config.FastAttack then return end
+    
+    pcall(function()
+        local currentTick = tick()
+        if currentTick - AttackCooldown >= 0.1 then
+            AttackCooldown = currentTick
+            
+            -- Try to get combat framework
+            local CombatFramework = debug.getupvalues(require(Player.PlayerScripts.CombatFramework))
+            for i, v in pairs(CombatFramework) do
+                if type(v) == "table" then
+                    if v.activeController then
+                        v.activeController.timeToNextAttack = 0
+                        v.activeController.hitboxMagnitude = 55
+                        v.activeController.active = false
+                        v.activeController.timeToNextBlock = 0
+                        v.activeController.focusStart = 0
+                        v.activeController.increment = 4
+                        v.activeController.blocking = false
+                        v.activeController.attacking = false
+                        v.activeController.humanoid.AutoRotate = true
+                    end
+                end
             end
-        end)
-    end
+        end
+    end)
 end
 
--- Bring Mobs Function
-function BringMobs()
+-- Click Attack (Alternative to Fast Attack)
+function ClickAttack()
+    pcall(function()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
+        wait()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
+    end)
+end
+
+-- Bring Mobs Function (IMPROVED)
+function BringMobs(targetPosition)
     if not _G.Config.BringMobs then return end
     
-    for _, v in pairs(game.Workspace.Enemies:GetChildren()) do
-        if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-            local distance = (v.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
-            if distance < 350 then
-                v.HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * CFrame.new(0, 0, -_G.Config.FarmDistance)
-                v.HumanoidRootPart.CanCollide = false
-                v.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
-                v.HumanoidRootPart.Transparency = 1
-                v.Humanoid.WalkSpeed = 0
-                v.Humanoid.JumpPower = 0
+    pcall(function()
+        for _, v in pairs(game.Workspace.Enemies:GetChildren()) do
+            if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                local distance = (v.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
                 
-                if v.Humanoid:FindFirstChild("Animator") then
-                    v.Humanoid.Animator:Destroy()
+                if distance < 350 then
+                    v.HumanoidRootPart.CFrame = targetPosition or (HumanoidRootPart.CFrame * CFrame.new(0, 0, -_G.Config.FarmDistance))
+                    v.HumanoidRootPart.CanCollide = false
+                    v.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
+                    v.HumanoidRootPart.Transparency = 1
+                    v.Humanoid.WalkSpeed = 0
+                    v.Humanoid.JumpPower = 0
+                    
+                    if v.Humanoid:FindFirstChild("Animator") then
+                        v.Humanoid.Animator:Destroy()
+                    end
+                    
+                    -- Make sure we can interact with the mob
+                    sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
                 end
-                
-                sethiddenproperty(Player, "SimulationRadius", math.huge)
+            end
+        end
+    end)
+end
+
+-- Get nearest enemy
+function GetNearestEnemy()
+    local nearestEnemy = nil
+    local shortestDistance = math.huge
+    
+    for _, enemy in pairs(game.Workspace.Enemies:GetChildren()) do
+        if enemy:FindFirstChild("Humanoid") and enemy:FindFirstChild("HumanoidRootPart") and enemy.Humanoid.Health > 0 then
+            local distance = (enemy.HumanoidRootPart.Position - HumanoidRootPart.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                nearestEnemy = enemy
             end
         end
     end
+    
+    return nearestEnemy
 end
 
--- Auto Farm Level Loop
-spawn(function()
-    while wait() do
+-- Auto Farm Level Loop (FIXED)
+task.spawn(function()
+    while task.wait() do
         if _G.Config.AutoFarm then
             pcall(function()
-                AutoHaki()
-                EquipWeapon()
-                FastAttack()
-                BringMobs()
+                local enemy = GetNearestEnemy()
                 
-                for _, enemy in pairs(game.Workspace.Enemies:GetChildren()) do
-                    if enemy:FindFirstChild("Humanoid") and enemy:FindFirstChild("HumanoidRootPart") and enemy.Humanoid.Health > 0 then
-                        repeat
-                            wait(_G.Config.FastAttackSpeed)
-                            AutoHaki()
-                            EquipWeapon()
+                if enemy then
+                    repeat
+                        task.wait()
+                        
+                        -- Enable Haki
+                        AutoHaki()
+                        AutoObservation()
+                        
+                        -- Equip weapon
+                        EquipWeapon()
+                        
+                        -- Position player
+                        local attackCFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, _G.Config.FarmDistance, 0)
+                        HumanoidRootPart.CFrame = attackCFrame
+                        
+                        -- Bring mobs
+                        BringMobs(attackCFrame)
+                        
+                        -- Attack
+                        if _G.Config.FastAttack then
                             FastAttack()
+                        end
+                        ClickAttack()
+                        
+                    until not _G.Config.AutoFarm or not enemy.Parent or enemy.Humanoid.Health <= 0
+                end
+            end)
+        end
+    end
+end)
+
+-- Auto Boss Farm (FIXED)
+task.spawn(function()
+    while task.wait() do
+        if _G.Config.AutoBoss and _G.Config.SelectedBoss ~= "" then
+            pcall(function()
+                for _, boss in pairs(game.Workspace.Enemies:GetChildren()) do
+                    if boss.Name == _G.Config.SelectedBoss and boss:FindFirstChild("Humanoid") and boss.Humanoid.Health > 0 then
+                        repeat
+                            task.wait()
                             
-                            HumanoidRootPart.CFrame = enemy.HumanoidRootPart.CFrame * CFrame.new(0, _G.Config.FarmDistance, 0)
+                            AutoHaki()
+                            AutoObservation()
+                            EquipWeapon()
                             
-                            VirtualUser:CaptureController()
-                            VirtualUser:Button1Down(Vector2.new(1280, 672))
-                        until not _G.Config.AutoFarm or not enemy.Parent or enemy.Humanoid.Health <= 0
+                            local attackCFrame = boss.HumanoidRootPart.CFrame * CFrame.new(0, _G.Config.FarmDistance, 0)
+                            HumanoidRootPart.CFrame = attackCFrame
+                            
+                            if _G.Config.FastAttack then
+                                FastAttack()
+                            end
+                            ClickAttack()
+                            
+                        until not _G.Config.AutoBoss or not boss.Parent or boss.Humanoid.Health <= 0
                     end
                 end
             end)
@@ -464,9 +580,9 @@ spawn(function()
     end
 end)
 
--- Auto Stats Loops
-spawn(function()
-    while wait(0.1) do
+-- Auto Stats Loops (FIXED)
+task.spawn(function()
+    while task.wait(0.5) do
         pcall(function()
             if _G.Config.AutoMelee then
                 ReplicatedStorage.Remotes.CommF_:InvokeServer("AddPoint", "Melee", 1)
@@ -487,52 +603,58 @@ spawn(function()
     end
 end)
 
--- Walk on Water
-spawn(function()
-    while wait(0.1) do
+-- Walk on Water (FIXED)
+task.spawn(function()
+    while task.wait(0.5) do
         pcall(function()
             if _G.Config.WalkOnWater then
-                game:GetService("Workspace").Map["WaterBase-Plane"].Size = Vector3.new(1000, 112, 1000)
-            else
-                game:GetService("Workspace").Map["WaterBase-Plane"].Size = Vector3.new(1000, 80, 1000)
+                if game.Workspace:FindFirstChild("Map") then
+                    local seaBase = game.Workspace.Map:FindFirstChild("WaterBase-Plane") or 
+                                   game.Workspace.Map:FindFirstChild("WaterBase")
+                    if seaBase then
+                        seaBase.Size = Vector3.new(1000, 112, 1000)
+                    end
+                end
             end
         end)
     end
 end)
 
--- No Clip
-spawn(function()
+-- No Clip (FIXED)
+task.spawn(function()
     RunService.Stepped:Connect(function()
         if _G.Config.NoClip then
-            for _, v in pairs(Character:GetDescendants()) do
-                if v:IsA("BasePart") then
-                    v.CanCollide = false
+            pcall(function()
+                for _, v in pairs(Character:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        v.CanCollide = false
+                    end
                 end
-            end
+            end)
         end
     end)
 end)
 
--- Speed Boost
-spawn(function()
-    while wait() do
-        if _G.Config.FastSpeed then
-            pcall(function()
+-- Speed Boost (FIXED)
+task.spawn(function()
+    while task.wait() do
+        pcall(function()
+            if _G.Config.FastSpeed then
                 Humanoid.WalkSpeed = 16 * _G.Config.SpeedMultiplier
-            end)
-        else
-            pcall(function()
+            else
                 Humanoid.WalkSpeed = 16
-            end)
-        end
+            end
+        end)
     end
 end)
 
--- Anti AFK
+-- Anti AFK (FIXED)
 Player.Idled:Connect(function()
-    VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-    wait(1)
-    VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    pcall(function()
+        VirtualUser:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        task.wait(1)
+        VirtualUser:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+    end)
 end)
 
 -- Success Notification
@@ -543,4 +665,4 @@ Rayfield:Notify({
     Image = 4483362458,
 })
 
-print("Blox Fruits Script Loaded Successfully")
+print("✅ Blox Fruits Script Loaded Successfully - All Functions Active")
